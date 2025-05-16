@@ -1,13 +1,13 @@
 const mysql = require('mysql');
-require('dotenv').config();
+
 
 const pool = mysql.createPool({
-  connectionLimit: 10, // Puedes ajustar este número según tu carga
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
+  host: process.env.MYSQLHOST,  // <-- Aquí usa MYSQLHOST de Railway
+  user: process.env.MYSQLUSER,
+  password: process.env.MYSQLPASSWORD,
+  database: process.env.MYSQLDATABASE,
+  port: process.env.MYSQLPORT || 3306
+}).promise();
 
 // Verificar si se conecta bien
 pool.getConnection((err, connection) => {

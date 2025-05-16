@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors'); // ✅ Importar CORS
-require('dotenv').config();
+
 const bodyParser = require('body-parser');
 const db = require('./db');
 const multer = require('multer');

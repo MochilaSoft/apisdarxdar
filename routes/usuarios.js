@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const connection = require('../db'); // <-- Ruta corregida
-require('dotenv').config();
+
 const multer = require('multer');
 const path = require('path');
 const router = express.Router();
