@@ -1,6 +1,6 @@
 const express = require('express');
 const connection = require('../db'); // <-- Ruta corregida
-
+require('dotenv').config();
 const router = express.Router();
 
 // 📌 Registrar un producto
