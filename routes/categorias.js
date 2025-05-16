@@ -1,66 +1,91 @@
 const express = require('express');
-const connection = require('../db'); // <-- Ruta corregida
+const pool = require('../db'); // Usando mysql2 con promesas
 require('dotenv').config();
 const router = express.Router();
 
 // 📌 Registrar una nueva categoría
-router.post('/categorias', (req, res) => {
+router.post('/', async (req, res) => {
     const { titulo, imagen, descripcion, estatus = 1 } = req.body;
 
     if (!titulo || !imagen) {
         return res.status(400).json({ error: 'El título y la imagen son obligatorios' });
     }
 
-    const query = 'INSERT INTO categorias (titulo, imagen, descripcion, estatus) VALUES (?, ?, ?, ?)';
-    connection.query(query, [titulo, imagen, descripcion, estatus], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const query = 'INSERT INTO categorias (titulo, imagen, descripcion, estatus) VALUES (?, ?, ?, ?)';
+        const [results] = await pool.query(query, [titulo, imagen, descripcion, estatus]);
+
         res.status(201).json({ message: 'Categoría creada con éxito', id: results.insertId });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // ✏️ Editar una categoría
-router.put('/categorias/:idcategoria', (req, res) => {
+router.put('/:idcategoria', async (req, res) => {
     const { titulo, imagen, descripcion, estatus } = req.body;
     const { idcategoria } = req.params;
 
-    const query = 'UPDATE categorias SET titulo=?, imagen=?, descripcion=?, estatus=? WHERE idcategoria=?';
-    connection.query(query, [titulo, imagen, descripcion, estatus, idcategoria], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const query = 'UPDATE categorias SET titulo=?, imagen=?, descripcion=?, estatus=? WHERE idcategoria=?';
+        const [results] = await pool.query(query, [titulo, imagen, descripcion, estatus, idcategoria]);
+
+        if (results.affectedRows === 0) {
+            return res.status(404).json({ error: 'Categoría no encontrada' });
+        }
+
         res.json({ message: 'Categoría actualizada' });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 🗑️ Eliminar una categoría
-router.delete('/categorias/:idcategoria', (req, res) => {
-    const { idcategoria } = req.params;
-
-    connection.query('DELETE FROM categorias WHERE idcategoria=?', [idcategoria], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+router.delete('/:idcategoria', async (req, res) => {
+    try {
+        const [result] = await pool.query('DELETE FROM categorias WHERE idcategoria=?', [req.params.idcategoria]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Categoría no encontrada' });
+        }
         res.json({ message: 'Categoría eliminada' });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 👥 Mostrar todas las categorías
-router.get('/categorias', (req, res) => {
-    connection.query('SELECT * FROM categorias', (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+router.get('/', async (req, res) => {
+    try {
+        const [results] = await pool.query('SELECT * FROM categorias');
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 🔍 Mostrar una categoría por ID
-router.get('/categorias/:idcategoria', (req, res) => {
-    connection.query('SELECT * FROM categorias WHERE idcategoria=?', [req.params.idcategoria], (err, results) => {
-        if (err || results.length === 0) return res.status(404).json({ error: 'Categoría no encontrada' });
+router.get('/:idcategoria', async (req, res) => {
+    try {
+        const [results] = await pool.query('SELECT * FROM categorias WHERE idcategoria=?', [req.params.idcategoria]);
+
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'Categoría no encontrada' });
+        }
         res.json(results[0]);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 🏷️ Filtrar por estatus (Disponible/No disponible)
-router.get('/categorias/estatus/:estatus', (req, res) => {
-    connection.query('SELECT * FROM categorias WHERE estatus=?', [req.params.estatus], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+router.get('/estatus/:estatus', async (req, res) => {
+    try {
+        const [results] = await pool.query('SELECT * FROM categorias WHERE estatus=?', [req.params.estatus]);
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
-module.exports=router;
+
+// 👉 Exportar router
+module.exports = router;

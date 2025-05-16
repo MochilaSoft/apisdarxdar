@@ -1,25 +1,28 @@
 const express = require('express');
-const connection = require('../db'); // <-- Ruta corregida
+const pool = require('../db'); // Usando mysql2 con promesas
 require('dotenv').config();
 const router = express.Router();
 
 // 📌 Registrar un pedido
-router.post('/pedidos', (req, res) => {
+router.post('/', async (req, res) => {
     const { iddonante, idbeneficiario, idcarrito, total, codigo } = req.body;
 
     if (!iddonante || !idbeneficiario || !idcarrito || !total || !codigo) {
         return res.status(400).json({ error: 'Todos los campos son obligatorios' });
     }
 
-    const query = 'INSERT INTO pedidos (iddonante, idbeneficiario, idcarrito, total, codigo) VALUES (?, ?, ?, ?, ?)';
-    connection.query(query, [iddonante, idbeneficiario, idcarrito, total, codigo], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const query = 'INSERT INTO pedidos (iddonante, idbeneficiario, idcarrito, total, codigo) VALUES (?, ?, ?, ?, ?)';
+        const [results] = await pool.query(query, [iddonante, idbeneficiario, idcarrito, total, codigo]);
+
         res.status(201).json({ message: 'Pedido registrado con éxito', idpedido: results.insertId });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // ✏️ Actualizar estado de un pedido
-router.put('/pedidos/:idpedido', (req, res) => {
+router.put('/:idpedido', async (req, res) => {
     const { estatus } = req.body;
     const { idpedido } = req.params;
 
@@ -27,69 +30,100 @@ router.put('/pedidos/:idpedido', (req, res) => {
         return res.status(400).json({ error: 'El estado debe ser 0 (Rechazado) o 1 (Aprobado)' });
     }
 
-    const query = 'UPDATE pedidos SET estatus=? WHERE idpedido=?';
-    connection.query(query, [estatus, idpedido], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const query = 'UPDATE pedidos SET estatus=? WHERE idpedido=?';
+        const [results] = await pool.query(query, [estatus, idpedido]);
+
+        if (results.affectedRows === 0) {
+            return res.status(404).json({ error: 'Pedido no encontrado' });
+        }
+
         res.json({ message: 'Estado del pedido actualizado' });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 🗑️ Eliminar un pedido
-router.delete('/pedidos/:idpedido', (req, res) => {
-    const { idpedido } = req.params;
+router.delete('/:idpedido', async (req, res) => {
+    try {
+        const query = 'DELETE FROM pedidos WHERE idpedido=?';
+        const [result] = await pool.query(query, [req.params.idpedido]);
 
-    connection.query('DELETE FROM pedidos WHERE idpedido=?', [idpedido], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Pedido no encontrado' });
+        }
+
         res.json({ message: 'Pedido eliminado' });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 👥 Mostrar todos los pedidos
-router.get('/pedidos', (req, res) => {
-    connection.query('SELECT * FROM pedidos', (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+router.get('/', async (req, res) => {
+    try {
+        const [results] = await pool.query('SELECT * FROM pedidos');
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 🔍 Mostrar un pedido por ID
-router.get('/pedidos/:idpedido', (req, res) => {
-    connection.query('SELECT * FROM pedidos WHERE idpedido=?', [req.params.idpedido], (err, results) => {
-        if (err || results.length === 0) return res.status(404).json({ error: 'Pedido no encontrado' });
+router.get('/:idpedido', async (req, res) => {
+    try {
+        const [results] = await pool.query('SELECT * FROM pedidos WHERE idpedido=?', [req.params.idpedido]);
+
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'Pedido no encontrado' });
+        }
+
         res.json(results[0]);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 📌 Filtrar pedidos por estado (Rechazado/Aprobado)
-router.get('/pedidos/estatus/:estatus', (req, res) => {
-    connection.query('SELECT * FROM pedidos WHERE estatus=?', [req.params.estatus], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+router.get('/estatus/:estatus', async (req, res) => {
+    try {
+        const [results] = await pool.query('SELECT * FROM pedidos WHERE estatus=?', [req.params.estatus]);
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 🔍 Filtrar pedidos por usuario donante
-router.get('/pedidos/donante/:iddonante', (req, res) => {
-    connection.query('SELECT * FROM pedidos WHERE iddonante=?', [req.params.iddonante], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+router.get('/donante/:iddonante', async (req, res) => {
+    try {
+        const [results] = await pool.query('SELECT * FROM pedidos WHERE iddonante=?', [req.params.iddonante]);
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 🔍 Filtrar pedidos por usuario beneficiario
-router.get('/pedidos/beneficiario/:idbeneficiario', (req, res) => {
-    connection.query('SELECT * FROM pedidos WHERE idbeneficiario=?', [req.params.idbeneficiario], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+router.get('/beneficiario/:idbeneficiario', async (req, res) => {
+    try {
+        const [results] = await pool.query('SELECT * FROM pedidos WHERE idbeneficiario=?', [req.params.idbeneficiario]);
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 🔢 Filtrar pedidos por código
-router.get('/pedidos/codigo/:codigo', (req, res) => {
-    connection.query('SELECT * FROM pedidos WHERE codigo=?', [req.params.codigo], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+router.get('/codigo/:codigo', async (req, res) => {
+    try {
+        const [results] = await pool.query('SELECT * FROM pedidos WHERE codigo=?', [req.params.codigo]);
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-module.exports= router;
+// 👉 Exportar router
+module.exports = router;

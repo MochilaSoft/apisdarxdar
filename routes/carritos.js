@@ -1,25 +1,27 @@
 const express = require('express');
-const connection = require('../db'); // <-- Ruta corregida
+const pool = require('../db'); // Usando mysql2 con promesas
 require('dotenv').config();
 const router = express.Router();
 
 // 📌 Crear un carrito
-router.post('/carrito', (req, res) => {
+router.post('/', async (req, res) => {
     const { estatus } = req.body;
 
     if (!['llevar', 'dejar'].includes(estatus)) {
         return res.status(400).json({ error: 'El estatus debe ser "llevar" o "dejar"' });
     }
 
-    const query = 'INSERT INTO carrito (estatus) VALUES (?)';
-    connection.query(query, [estatus], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const query = 'INSERT INTO carrito (estatus) VALUES (?)';
+        const [results] = await pool.query(query, [estatus]);
         res.status(201).json({ message: 'Carrito creado', idcarrito: results.insertId });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // ✏️ Editar un carrito
-router.put('/carrito/:idcarrito', (req, res) => {
+router.put('/:idcarrito', async (req, res) => {
     const { estatus } = req.body;
     const { idcarrito } = req.params;
 
@@ -27,45 +29,70 @@ router.put('/carrito/:idcarrito', (req, res) => {
         return res.status(400).json({ error: 'El estatus debe ser "llevar" o "dejar"' });
     }
 
-    const query = 'UPDATE carrito SET estatus=? WHERE idcarrito=?';
-    connection.query(query, [estatus, idcarrito], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const query = 'UPDATE carrito SET estatus=? WHERE idcarrito=?';
+        const [results] = await pool.query(query, [estatus, idcarrito]);
+
+        if (results.affectedRows === 0) {
+            return res.status(404).json({ error: 'Carrito no encontrado' });
+        }
+
         res.json({ message: 'Carrito actualizado' });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 🗑️ Eliminar un carrito
-router.delete('/carrito/:idcarrito', (req, res) => {
-    const { idcarrito } = req.params;
+router.delete('/:idcarrito', async (req, res) => {
+    try {
+        const query = 'DELETE FROM carrito WHERE idcarrito=?';
+        const [result] = await pool.query(query, [req.params.idcarrito]);
 
-    connection.query('DELETE FROM carrito WHERE idcarrito=?', [idcarrito], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Carrito no encontrado' });
+        }
+
         res.json({ message: 'Carrito eliminado' });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 👥 Mostrar todos los carritos
-router.get('/carrito', (req, res) => {
-    connection.query('SELECT * FROM carrito', (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+router.get('/', async (req, res) => {
+    try {
+        const [results] = await pool.query('SELECT * FROM carrito');
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 🔍 Mostrar un carrito por ID
-router.get('/carrito/:idcarrito', (req, res) => {
-    connection.query('SELECT * FROM carrito WHERE idcarrito=?', [req.params.idcarrito], (err, results) => {
-        if (err || results.length === 0) return res.status(404).json({ error: 'Carrito no encontrado' });
+router.get('/:idcarrito', async (req, res) => {
+    try {
+        const [results] = await pool.query('SELECT * FROM carrito WHERE idcarrito=?', [req.params.idcarrito]);
+
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'Carrito no encontrado' });
+        }
+
         res.json(results[0]);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 🏷️ Filtrar por estatus (llevar/dejar)
-router.get('/carrito/estatus/:estatus', (req, res) => {
-    connection.query('SELECT * FROM carrito WHERE estatus=?', [req.params.estatus], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+router.get('/estatus/:estatus', async (req, res) => {
+    try {
+        const [results] = await pool.query('SELECT * FROM carrito WHERE estatus=?', [req.params.estatus]);
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-module.exports=router;
+// 👉 Exportar router
+module.exports = router;

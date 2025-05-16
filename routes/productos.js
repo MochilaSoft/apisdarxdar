@@ -1,124 +1,147 @@
 const express = require('express');
-const connection = require('../db'); // <-- Ruta corregida
+const pool = require('../db'); // Usando mysql2 con promesas
 require('dotenv').config();
 const router = express.Router();
 
 // 📌 Registrar un producto
-router.post('/registrar', (req, res) => {
+router.post('/registrar', async (req, res) => {
     const { nombreproducto, imagen, idcategoria, talla, color, tela, descripcion, cantidad } = req.body;
 
-    // Generar código automáticamente
-    const codigo = `PROD-${Date.now()}`; // Ejemplo: PROD-1684972342342
-    const estatus = 1; // Asignar estatus predeterminado
+    if (!nombreproducto || !imagen || !idcategoria) {
+        return res.status(400).json({ error: 'El nombre, imagen y categoría son obligatorios' });
+    }
 
-    const query = `
-        INSERT INTO productos (codigo, nombreproducto, imagen, idcategoria, talla, color, tela, descripcion, estatus, cantidad) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    connection.query(
-        query,
-        [codigo, nombreproducto, imagen, idcategoria, talla, color, tela, descripcion, estatus, cantidad],
-        (err, results) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.status(201).json({ message: 'Producto registrado con éxito', id: results.insertId });
-        }
-    );
+    try {
+        // Generar código único
+        const codigo = `PROD-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const estatus = 1; // Estatus predeterminado
+
+        const query = `
+            INSERT INTO productos (codigo, nombreproducto, imagen, idcategoria, talla, color, tela, descripcion, estatus, cantidad) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        const [results] = await pool.query(query, [codigo, nombreproducto, imagen, idcategoria, talla, color, tela, descripcion, estatus, cantidad]);
+
+        res.status(201).json({ message: 'Producto registrado con éxito', id: results.insertId });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // ✏️ Editar un producto
-router.put('/productos/:idproducto', (req, res) => {
+router.put('/:idproducto', async (req, res) => {
     const { nombreproducto, imagen, idcategoria, talla, color, tela, descripcion, estatus, cantidad } = req.body;
     const { idproducto } = req.params;
 
-    const query = 'UPDATE productos SET nombreproducto=?, idcategoria=?, talla=?, color=?, tela=?, descripcion=?, estatus=?, cantidad=? WHERE idproducto=?';
-    connection.query(query, [nombreproducto, imagen, idcategoria, talla, color, tela, descripcion, estatus, cantidad, idproducto], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        const query = 'UPDATE productos SET nombreproducto=?, imagen=?, idcategoria=?, talla=?, color=?, tela=?, descripcion=?, estatus=?, cantidad=? WHERE idproducto=?';
+        const [results] = await pool.query(query, [nombreproducto, imagen, idcategoria, talla, color, tela, descripcion, estatus, cantidad, idproducto]);
+
+        if (results.affectedRows === 0) {
+            return res.status(404).json({ error: 'Producto no encontrado' });
+        }
+
         res.json({ message: 'Producto actualizado' });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 🗑️ Eliminar un producto
-router.delete('/productos/:idproducto', (req, res) => {
-    const { idproducto } = req.params;
-
-    connection.query('DELETE FROM productos WHERE idproducto=?', [idproducto], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+router.delete('/:idproducto', async (req, res) => {
+    try {
+        const [result] = await pool.query('DELETE FROM productos WHERE idproducto=?', [req.params.idproducto]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'Producto no encontrado' });
+        }
         res.json({ message: 'Producto eliminado' });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 👥 Mostrar todos los productos
-router.get('/productos', (req, res) => {
-    const query = `
-        SELECT productos.*, categorias.titulo AS categoria_titulo 
-        FROM productos 
-        JOIN categorias ON productos.idcategoria = categorias.idcategoria
-    `;
-    connection.query(query, (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+router.get('/', async (req, res) => {
+    try {
+        const query = `
+            SELECT productos.*, categorias.titulo AS categoria_titulo 
+            FROM productos 
+            JOIN categorias ON productos.idcategoria = categorias.idcategoria
+        `;
+        const [results] = await pool.query(query);
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
-
 
 // 🔍 Mostrar un producto por ID
-router.get('/get/:idproducto', (req, res) => {
-    const query = `
-        SELECT productos.*, categorias.titulo AS categoria_titulo 
-        FROM productos 
-        JOIN categorias ON productos.idcategoria = categorias.idcategoria
-        WHERE productos.idproducto = ?
-    `;
-    connection.query(query, [req.params.idproducto], (err, results) => {
-        if (err || results.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
-        res.json(results[0]);
-    });
-});
+router.get('/:idproducto', async (req, res) => {
+    try {
+        const query = `
+            SELECT productos.*, categorias.titulo AS categoria_titulo 
+            FROM productos 
+            JOIN categorias ON productos.idcategoria = categorias.idcategoria
+            WHERE productos.idproducto = ?
+        `;
+        const [results] = await pool.query(query, [req.params.idproducto]);
 
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'Producto no encontrado' });
+        }
+        res.json(results[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // 🏷️ Filtrar productos por categoría
-router.get('categoria/:idcategoria', (req, res) => {
-    const query = `
-        SELECT productos.*, categorias.titulo AS categoria_titulo 
-        FROM productos 
-        JOIN categorias ON productos.idcategoria = categorias.idcategoria
-        WHERE productos.idcategoria = ?
-    `;
-    connection.query(query, [req.params.idcategoria], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+router.get('/categoria/:idcategoria', async (req, res) => {
+    try {
+        const query = `
+            SELECT productos.*, categorias.titulo AS categoria_titulo 
+            FROM productos 
+            JOIN categorias ON productos.idcategoria = categorias.idcategoria
+            WHERE productos.idcategoria = ?
+        `;
+        const [results] = await pool.query(query, [req.params.idcategoria]);
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
-
 
 // 📌 Filtrar productos por estatus (Disponible/No disponible)
-router.get('/estatus/:estatus', (req, res) => {
-    const query = `
-        SELECT productos.*, categorias.titulo AS categoria_titulo 
-        FROM productos 
-        JOIN categorias ON productos.idcategoria = categorias.idcategoria
-        WHERE productos.estatus = ?
-    `;
-
-    connection.query(query, [req.params.estatus], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+router.get('/estatus/:estatus', async (req, res) => {
+    try {
+        const query = `
+            SELECT productos.*, categorias.titulo AS categoria_titulo 
+            FROM productos 
+            JOIN categorias ON productos.idcategoria = categorias.idcategoria
+            WHERE productos.estatus = ?
+        `;
+        const [results] = await pool.query(query, [req.params.estatus]);
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
-
 
 // 🔍 Buscar productos por nombre
-router.get('/nombre/:nombreproducto', (req, res) => {
-    const query = `
-        SELECT productos.*, categorias.titulo AS categoria_titulo 
-        FROM productos 
-        JOIN categorias ON productos.idcategoria = categorias.idcategoria
-        WHERE productos.nombreproducto LIKE ?
-    `;
-
-    connection.query(query, [`%${req.params.nombreproducto}%`], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+router.get('/nombre/:nombreproducto', async (req, res) => {
+    try {
+        const query = `
+            SELECT productos.*, categorias.titulo AS categoria_titulo 
+            FROM productos 
+            JOIN categorias ON productos.idcategoria = categorias.idcategoria
+            WHERE productos.nombreproducto LIKE ?
+        `;
+        const [results] = await pool.query(query, [`%${req.params.nombreproducto}%`]);
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
+
+// 👉 Exportar router
 module.exports = router;
