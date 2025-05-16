@@ -8,4 +8,14 @@ const pool = mysql.createPool({
     port: process.env.MYSQLPORT || 3306
 }).promise();
 
+// Probar la conexión
+pool.getConnection()
+    .then((connection) => {
+        console.log("✅ Conexión exitosa a MySQL");
+        connection.release(); // Liberar la conexión
+    })
+    .catch((error) => {
+        console.error("❌ Error al conectar a MySQL:", error.message);
+    });
+
 module.exports = pool;
