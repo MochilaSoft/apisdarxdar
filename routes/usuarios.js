@@ -69,13 +69,23 @@ router.post('/login', async (req, res) => {
             return res.status(401).json({ error: 'Credenciales incorrectas' });
         }
 
+        // Generar el token con la información necesaria
         const token = jwt.sign({ id: usuario.id, rol: usuario.rol }, SECRET_KEY, { expiresIn: '1h' });
-        res.json({ message: 'Login exitoso', token });
+
+        // Excluir la contraseña del objeto antes de enviarlo
+        delete usuario.password;
+
+        res.json({ 
+            message: 'Login exitoso', 
+            token, 
+            usuario  // Devuelve todos los datos del usuario excepto la contraseña
+        });
     } catch (err) {
         console.error('Error en login:', err);
         res.status(500).json({ error: 'Error al autenticar usuario' });
     }
 });
+
 
 // 👥 Mostrar todos los usuarios
 router.get('/', async (req, res) => {
