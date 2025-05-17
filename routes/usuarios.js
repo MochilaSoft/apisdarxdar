@@ -114,6 +114,113 @@ router.put('/:id', async (req, res) => {
     }
 });
 
+router.get('/:id', async (req, res) => {
+    const { id } = req.params;
+
+    if (!id) {
+        return res.status(400).json({ error: 'ID es requerido' });
+    }
+
+    try {
+        const [results] = await pool.execute('SELECT * FROM usuarios WHERE id=?', [id]);
+
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        res.json(results[0]);
+    } catch (err) {
+        console.error('Error en la consulta:', err);
+        res.status(500).json({ error: 'Error al obtener usuario' });
+    }
+});
+
+router.get('/nombre/:nombre', async (req, res) => {
+    const { nombre } = req.params;
+
+    try {
+        const [results] = await pool.query('SELECT * FROM usuarios WHERE nombres LIKE ?', [`%${nombre}%`]);
+
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'No se encontraron usuarios con ese nombre' });
+        }
+
+        res.json(results);
+    } catch (err) {
+        console.error('Error en la consulta:', err);
+        res.status(500).json({ error: 'Error al buscar usuario por nombre' });
+    }
+});
+
+router.get('/apellido/:apellido', async (req, res) => {
+    const { apellido } = req.params;
+
+    try {
+        const [results] = await pool.query('SELECT * FROM usuarios WHERE apellidos LIKE ?', [`%${apellido}%`]);
+
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'No se encontraron usuarios con ese apellido' });
+        }
+
+        res.json(results);
+    } catch (err) {
+        console.error('Error en la consulta:', err);
+        res.status(500).json({ error: 'Error al buscar usuario por apellido' });
+    }
+});
+
+router.get('/ciudad/:ciudad', async (req, res) => {
+    const { ciudad } = req.params;
+
+    try {
+        const [results] = await pool.query('SELECT * FROM usuarios WHERE ciudad LIKE ?', [`%${ciudad}%`]);
+
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'No se encontraron usuarios en esa ciudad' });
+        }
+
+        res.json(results);
+    } catch (err) {
+        console.error('Error en la consulta:', err);
+        res.status(500).json({ error: 'Error al buscar usuario por ciudad' });
+    }
+});
+
+router.get('/rol/:rol', async (req, res) => {
+    const { rol } = req.params;
+
+    try {
+        const [results] = await pool.query('SELECT * FROM usuarios WHERE rol=?', [rol]);
+
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'No se encontraron usuarios con ese rol' });
+        }
+
+        res.json(results);
+    } catch (err) {
+        console.error('Error en la consulta:', err);
+        res.status(500).json({ error: 'Error al buscar usuario por rol' });
+    }
+});
+
+router.get('/dni/:dni', async (req, res) => {
+    const { rol } = req.params;
+
+    try {
+        const [results] = await pool.query('SELECT * FROM usuarios WHERE dni=?', [dni]);
+
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'No se encontraron usuarios con ese rol' });
+        }
+
+        res.json(results);
+    } catch (err) {
+        console.error('Error en la consulta:', err);
+        res.status(500).json({ error: 'Error al buscar usuario por rol' });
+    }
+});
+
+
 // 🗑️ Eliminar usuario
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;
