@@ -71,8 +71,14 @@ router.post('/login', async (req, res) => {
 router.get('/', async (req, res) => {
     try {
         const [results] = await pool.execute('SELECT * FROM usuarios');
+        
+        if (!results || results.length === 0) {
+            return res.status(404).json({ error: 'No se encontraron usuarios' });
+        }
+
         res.json(results);
     } catch (err) {
+        console.error('Error en la consulta:', err);
         res.status(500).json({ error: 'Error al obtener usuarios' });
     }
 });
